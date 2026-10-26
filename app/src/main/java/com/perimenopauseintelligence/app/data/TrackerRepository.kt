@@ -29,6 +29,12 @@ class TrackerRepository(private val db: AppDatabase) {
         )
     }
 
+    /** Shows exactly these symptoms in the daily log and hides the rest. Hiding never deletes recorded data. */
+    suspend fun setVisibleSymptoms(ids: Set<String>) {
+        seedDefaults()
+        dao.setVisibleSymptoms(ids.toList())
+    }
+
     suspend fun setSymptomArchived(id: String, archived: Boolean) = dao.setSymptomArchived(id, archived)
 
     fun observeDay(date: LocalDate): Flow<DayRecord?> =

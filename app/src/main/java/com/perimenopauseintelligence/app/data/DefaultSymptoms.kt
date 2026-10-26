@@ -30,6 +30,23 @@ object DefaultSymptoms {
         Triple("heavy_bleeding", "Heavy bleeding", "Bleeding"),
     )
 
+    /** Pre-selected during onboarding; everything else stays available under "Add or hide symptoms". */
+    val starterIds = setOf(
+        "hot_flushes", "night_sweats", "trouble_falling_asleep", "night_waking",
+        "low_mood", "anxiety", "fatigue", "brain_fog",
+    )
+
+    fun emojiFor(category: String): String = when (category) {
+        "Hot flushes & sweats" -> "\uD83D\uDD25"
+        "Sleep" -> "\uD83C\uDF19"
+        "Mood" -> "\uD83D\uDCAD"
+        "Thinking & energy" -> "\u26A1"
+        "Body" -> "\uD83C\uDF3F"
+        "Intimate & urinary" -> "\uD83D\uDCA7"
+        "Bleeding" -> "\uD83E\uDE78"
+        else -> "\u2728"
+    }
+
     val all: List<SymptomEntity> = items.mapIndexed { i, (id, label, cat) ->
         SymptomEntity(id = id, label = label, category = cat, isCustom = false, sortOrder = i)
     }

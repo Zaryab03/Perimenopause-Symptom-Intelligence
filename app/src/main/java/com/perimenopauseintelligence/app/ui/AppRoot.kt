@@ -7,20 +7,16 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -43,25 +39,11 @@ fun AppRoot(container: AppContainer) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
-    var showWelcome by remember { mutableStateOf(!container.settings.welcomeSeen) }
+    val locked by container.locked.collectAsStateWithLifecycle()
+    val onboardingDone by container.settings.onboardingDone.collectAsStateWithLifecycle()
 
-    if (showWelcome) {
-        AlertDialog(
-            onDismissRequest = {},
-            title = { Text("Welcome") },
-            text = {
-                Text(
-                    "Record how you feel, look back at your own history, and prepare for appointments.\n\n" +
-                        "• Everything stays on this device, encrypted. There is no account and no internet access.\n" +
-                        "• Log only what you want to. Skipping a day is fine.\n" +
-                        "• This app does not diagnose or give medical advice.",
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { container.settings.welcomeSeen = true; showWelcome = false }) { Text("Get started") }
-            },
-        )
-    }
+    if (locked) { LockScreen(container); return }
+    if (!onboardingDone) { OnboardingScreen(container); return }
 
     Scaffold(
         bottomBar = {
@@ -89,7 +71,9 @@ fun AppRoot(container: AppContainer) {
             composable("insights") { InsightsScreen(container) }
             composable("learn") { LearnScreen(onOpen = { nav.navigate("article/$it") }) }
             composable("article/{id}") { entry -> ArticleScreen(entry.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() }) }
-            composable("more") { MoreScreen(onOpen = { nav.navigate(it) }) }
+            composable("more") { MoreScreen(container, onOpen = { nav.navigate(it) }) }
+            composable("profile") { ProfileScreen(container, onBack = { nav.popBackStack() }) }
+            composable("security") { SecurityScreen(container, onBack = { nav.popBackStack() }) }
             composable("export") { ExportScreen(container, onBack = { nav.popBackStack() }) }
             composable("appointment") { AppointmentScreen(container, onBack = { nav.popBackStack() }) }
             composable("symptoms") { SymptomsScreen(container, onBack = { nav.popBackStack() }) }

@@ -5,7 +5,17 @@ import android.content.Context
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.perimenopauseintelligence.app.data.PeriodStatus
+import com.perimenopauseintelligence.app.data.PinCodec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -49,36 +59,139 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
-private data class MoreItem(val route: String, val title: String, val subtitle: String)
+private data class MoreItem(val route: String, val emoji: String, val title: String, val subtitle: String)
 
 private val moreItems = listOf(
-    MoreItem("appointment", "Appointment preparation", "Choose symptoms, add questions, create a PDF"),
-    MoreItem("export", "Export my data", "CSV, JSON or PDF for any date range"),
-    MoreItem("symptoms", "My symptoms", "Choose what appears in your daily log, add your own"),
-    MoreItem("reminders", "Reminders", "Optional, and you choose the time"),
-    MoreItem("privacy", "Privacy and my data", "How your information is stored; delete everything"),
+    MoreItem("appointment", "\uD83D\uDCCB", "Appointment preparation", "Choose symptoms, add questions, create a PDF"),
+    MoreItem("export", "\uD83D\uDCE4", "Export my data", "CSV, JSON or PDF for any date range"),
+    MoreItem("symptoms", "\uD83C\uDF3F", "My symptoms", "Choose what appears in your daily log"),
+    MoreItem("reminders", "\uD83D\uDD14", "Reminders", "Optional, and you choose the time"),
+    MoreItem("security", "\uD83D\uDD12", "PIN and app lock", "Keep your journal private on this phone"),
+    MoreItem("privacy", "\uD83D\uDEE1\uFE0F", "Privacy and my data", "How your information is stored; delete everything"),
 )
 
 @Composable
-fun MoreScreen(onOpen: (String) -> Unit) {
+fun MoreScreen(container: AppContainer, onOpen: (String) -> Unit) {
+    val name by container.settings.userName.collectAsStateWithLifecycle()
+    val pinOn by container.settings.pinEnabled.collectAsStateWithLifecycle()
     ScreenList("More") {
+        item {
+            AppCard(onClick = { onOpen("profile") }, color = MaterialTheme.colorScheme.primaryContainer) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Box(Modifier.size(52.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
+                        Text(name.firstOrNull()?.uppercase() ?: "\u2728", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimary)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(if (name.isBlank()) "Add your name" else name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text("Your profile and preferences", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
+        }
+        if (pinOn) item { Button(onClick = { container.lockNow() }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Lock the app now") } }
         items(moreItems.size, key = { moreItems[it].route }) { i ->
             val m = moreItems[i]
-            Card(Modifier.fillMaxWidth().clickable { onOpen(m.route) }) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(m.title, style = MaterialTheme.typography.titleMedium)
-                    Text(m.subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AppCard(onClick = { onOpen(m.route) }) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    EmojiBadge(m.emoji)
+                    Column(Modifier.weight(1f)) {
+                        Text(m.title, style = MaterialTheme.typography.titleSmall)
+                        Text(m.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
         item {
             Text(
-                "Perimenopause Symptom Intelligence · test build 0.1.0. This app helps you record and review your own " +
+                "Perimenopause Symptom Intelligence \u00b7 test version ${com.perimenopauseintelligence.app.BuildConfig.VERSION_NAME}. This app helps you record and review your own " +
                     "information. It does not diagnose conditions or provide medical advice.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
+}
+
+@Composable
+fun ProfileScreen(container: AppContainer, onBack: () -> Unit) {
+    val name by container.settings.userName.collectAsStateWithLifecycle()
+    val period by container.settings.periodStatus.collectAsStateWithLifecycle()
+    var draft by remember { mutableStateOf(name) }
+    ScreenList("Your profile", onBack) {
+        item { InfoCard { Text("Stored only on this phone. We don't ask for your gender, age or location, because the app doesn't need them.") } }
+        item {
+            OutlinedTextField(draft, { draft = it.take(40); container.settings.setUserName(it) }, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        }
+        item { SectionHeader("Do you still have periods?") }
+        items(PeriodStatus.entries.size) { i ->
+            val p = PeriodStatus.entries[i]
+            AppCard(onClick = { container.settings.setPeriodStatus(p) }, color = if (period == p) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
+                Text(p.label, style = MaterialTheme.typography.titleSmall)
+                Text(p.hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+fun SecurityScreen(container: AppContainer, onBack: () -> Unit) {
+    val pinOn by container.settings.pinEnabled.collectAsStateWithLifecycle()
+    var dialog by remember { mutableStateOf<String?>(null) }
+    ScreenList("PIN and app lock", onBack) {
+        item {
+            InfoCard {
+                Text("With a PIN, the app locks itself 30 seconds after you leave it. Its contents are also hidden from screenshots and the recent-apps view.")
+                Text("There is no way to recover a forgotten PIN. Resetting it erases the data on this device, so export a copy now and then.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (!pinOn) {
+            item { Button(onClick = { dialog = "set" }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Set a PIN") } }
+        } else {
+            item { Button(onClick = { container.lockNow() }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Lock the app now") } }
+            item { OutlinedButton(onClick = { dialog = "change" }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Change PIN") } }
+            item { OutlinedButton(onClick = { dialog = "remove" }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Turn PIN off") } }
+        }
+    }
+    dialog?.let { mode -> PinDialog(container, mode) { dialog = null } }
+}
+
+@Composable
+private fun PinDialog(container: AppContainer, mode: String, onClose: () -> Unit) {
+    var current by remember { mutableStateOf("") }
+    var pin by remember { mutableStateOf("") }
+    var pin2 by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val needsCurrent = mode != "set"
+    val needsNew = mode != "remove"
+    fun field(value: String, set: (String) -> Unit, label: String) = @Composable {
+        OutlinedTextField(value, { set(it.filter(Char::isDigit).take(PinCodec.MAX_LENGTH)); error = null }, label = { Text(label) }, singleLine = true,
+            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), modifier = Modifier.fillMaxWidth())
+    }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(when (mode) { "set" -> "Set a PIN"; "change" -> "Change PIN"; else -> "Turn PIN off" }) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (needsCurrent) field(current, { current = it }, "Current PIN")()
+                if (needsNew) {
+                    field(pin, { pin = it }, "New PIN (${PinCodec.MIN_LENGTH}\u2013${PinCodec.MAX_LENGTH} digits)")()
+                    field(pin2, { pin2 = it }, "Repeat new PIN")()
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (needsCurrent && !container.settings.verifyPin(current)) { error = "Current PIN isn't right."; return@TextButton }
+                if (needsNew) {
+                    if (!PinCodec.isValid(pin)) { error = "Use ${PinCodec.MIN_LENGTH}\u2013${PinCodec.MAX_LENGTH} digits."; return@TextButton }
+                    if (pin != pin2) { error = "The PINs don't match."; return@TextButton }
+                    container.settings.setPin(pin)
+                } else container.settings.clearPin()
+                onClose()
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } },
+    )
 }
 
 private enum class RangePreset(val label: String, val days: Int?) {

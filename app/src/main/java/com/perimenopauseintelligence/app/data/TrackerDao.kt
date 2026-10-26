@@ -84,6 +84,9 @@ interface TrackerDao {
     @Query("DELETE FROM symptoms WHERE isCustom = 1")
     suspend fun deleteCustomSymptoms()
 
+    @Query("UPDATE symptoms SET archived = CASE WHEN id IN (:visibleIds) THEN 0 ELSE 1 END")
+    suspend fun setVisibleSymptoms(visibleIds: List<String>)
+
     @Query("UPDATE symptoms SET archived = 0")
     suspend fun unarchiveAllSymptoms()
 }

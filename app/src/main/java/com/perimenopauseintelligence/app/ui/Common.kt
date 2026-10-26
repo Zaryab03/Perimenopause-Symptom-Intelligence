@@ -46,17 +46,17 @@ fun ScreenList(
     content: LazyListScope.() -> Unit,
 ) {
     Column(Modifier.statusBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (title.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
             } else {
                 androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 8.dp))
             }
-            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(title, style = MaterialTheme.typography.headlineSmall)
         }
         LazyColumn(
             state = state,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )
@@ -65,10 +65,7 @@ fun ScreenList(
 
 @Composable
 fun InfoCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { content() } }
+    AppCard(modifier = modifier, color = MaterialTheme.colorScheme.surfaceContainer) { content() }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
